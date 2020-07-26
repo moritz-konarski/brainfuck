@@ -88,6 +88,8 @@ fn main() {
     loop {
         io::stdin().read_line(&mut input)
             .expect("Could not read input");
+        
+            // TODO: redo this using u8 because of many programs taking advantage of that
 
         for c in input.chars() {
             match c {
@@ -95,7 +97,7 @@ fn main() {
                 '<' => mem_space.pointer_decrement(),
                 '+' => mem_space.data_increment(),
                 '-' => mem_space.data_decrement(),
-                '.' => mem_space.output_data(),
+                '.' => println!("{}", mem_space.output_data()),
                 ',' => mem_space.write_data(c),
                 _ => (),
             }
