@@ -13,9 +13,16 @@
  *
  *  standard implementation has an array of 30,000 cells of u8
  *  what happens when the pointer goes out of bounds -- error? -- best solution
+ *  Hello World:
+ *  ++++++++[>++++[>++>+++>+++>+<<<<-]>+>+>->>+[<]<-]>>.>---.+++++++..+++.>>.<-.<.+++.------.--------.>>+.>++.
  */
 use std::char;
 use std::io::{self, Write};
+
+// TODO: 
+//  - make data type for printing uniform -- figure out how to do it better
+//  - make all the functions safer and add error messages
+//  - create a bracket pair struct with methods that takes care of the pairs
 
 const ARRAY_SIZE: usize = 30_000;
 
@@ -36,7 +43,7 @@ impl MemorySpace {
 
     // action for '<'
     fn pointer_decrement(&mut self) {
-        if self.index > 1 {
+        if self.index >= 1 {
             self.index -= 1;
         } else {
             self.index = ARRAY_SIZE - 1;
@@ -125,9 +132,23 @@ fn main() {
         let input: Vec<_> = input.chars().collect();
 
         let bracket_pairs = get_bracket_pairs(&input);
-        println!("{:?}", bracket_pairs);
-        let mut open_bracket_index = 0;
-        let mut closed_bracket_index = 0;
+
+        //println!("{:?}", bracket_pairs);
+
+        /*
+        for pair in bracket_pairs.iter() {
+            println!("open bracket {} goes with {}", pair.0, pair.1);
+            println!(
+                "open bracket {} goes with {}",
+                get_first_bracket(&bracket_pairs, pair.1),
+                get_second_bracket(&bracket_pairs, pair.0)
+            );
+        }
+        */
+
+        let mut output_string: Vec<char> = Vec::new();
+        let mut printing = false;
+
         let mut i = 0;
 
         loop {
@@ -136,6 +157,7 @@ fn main() {
             }
 
             let c = input[i];
+
             i += 1;
 
             match c {
@@ -143,36 +165,66 @@ fn main() {
                 '<' => mem_space.pointer_decrement(),
                 '+' => mem_space.data_increment(),
                 '-' => mem_space.data_decrement(),
-                '.' => println!("{}", mem_space.get_data()),
+                '.' => {
+                    printing = true;
+                    output_string.push(mem_space.get_data());
+                }
                 // TODO: make input function
-                ',' => mem_space.write_data('c'),
-                /*
+                ',' => {
+                    println!("Enter 1 character:");
+                    let mut read_input = String::new();
+                    io::stdin()
+                        .read_line(&mut read_input)
+                        .expect("Error: could not read input");
+                    let c: char = match read_input.chars().next() {
+                        Some(c) => c,
+                        None => 0 as char,
+                    };
+                    mem_space.write_data(c);
+                }
+                // '[' if the byte at the pointer is 0, jump to ']', else to next command
                 '[' => {
                     if mem_space.is_data_zero() {
-                        i = bracket_pairs[open_bracket_index].1;                                              
-                        open_bracket_index += 1;
+                        //println!("open bracket at {}", i - 1);
+                        i = get_second_bracket(&bracket_pairs, i - 1);
+                        //println!("jump to {}", i);
                     }
-                },
+                }
+                // ']' if the data pointer is not 0, jump to '[', else to next command
                 ']' => {
                     if !mem_space.is_data_zero() {
-                        i = bracket_pairs[closed_bracket_index].0;                                              
-                        closed_bracket_index += 1;
+                        //println!("closed bracket at {}", i - 1);
+                        i = get_first_bracket(&bracket_pairs, i - 1);
+                        //println!("jump to {}", i);
                     }
-                },
-                */
-                ':' => {is_command = true; continue;},
+                }
+                ':' => {
+                    is_command = true;
+                    continue;
+                }
                 _ => (),
             };
+
+            if printing {
+                printing = false;
+                for c in output_string.iter() {
+                    print!("{}", c);
+                }
+                match io::stdout().flush() {
+                    Ok(_) => (),
+                    Err(_) => eprintln!("Error: failed to print output"),
+                };
+            }
 
             if is_command {
                 is_command = false;
                 match c {
-                'r' => mem_space = mem_space.reset(),
-                'q' => {
-                    mem_space = mem_space.reset();
-                    quit = true;
-                }
-                _ => (),
+                    'r' => mem_space = mem_space.reset(),
+                    'q' => {
+                        mem_space = mem_space.reset();
+                        quit = true;
+                    }
+                    _ => (),
                 };
             };
         }
@@ -207,14 +259,32 @@ fn get_bracket_pairs(input_vec: &Vec<char>) -> Vec<(usize, usize)> {
         match c {
             '[' => {
                 pair_vec.push((i, 0));
-                bracket_order.push(pair_vec.len()-1);
-            },
+                bracket_order.push(pair_vec.len() - 1);
+            }
             ']' => {
-                pair_vec[bracket_order[bracket_order.len()-1]].1 = i;
+                pair_vec[bracket_order[bracket_order.len() - 1]].1 = i;
                 bracket_order.remove(bracket_order.len() - 1);
-            },
+            }
             _ => (),
-        }        
+        }
     }
     pair_vec
+}
+
+fn get_first_bracket(bracket_list: &Vec<(usize, usize)>, second_bracket: usize) -> usize {
+    for pair in bracket_list.iter() {
+        if pair.1 == second_bracket {
+            return pair.0;
+        }
+    }
+    0
+}
+
+fn get_second_bracket(bracket_list: &Vec<(usize, usize)>, first_bracket: usize) -> usize {
+    for pair in bracket_list.iter() {
+        if pair.0 == first_bracket {
+            return pair.1;
+        }
+    }
+    0
 }
