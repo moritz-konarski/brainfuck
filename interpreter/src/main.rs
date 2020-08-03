@@ -18,7 +18,6 @@ use std::char;
 use std::io::{self, Write};
 
 // TODO:
-//  - make data type for printing uniform -- figure out how to do it better
 //  - make all the functions safer and add error messages
 //  - create a bracket pair struct with methods that takes care of the pairs
 //  - make state machine to make errors and exits simpler
