@@ -13,9 +13,11 @@
  *
  *  Hello World:
  *  ++++++++[>++++[>++>+++>+++>+<<<<-]>+>+>->>+[<]<-]>>.>---.+++++++..+++.>>.<-.<.+++.------.--------.>>+.>++.
+ *
+ *  Fibonacci:
+ *  +++++++++++>+>>>>++++++++++++++++++++++++++++++++++++++++++++>++++++++++++++++++++++++++++++++<<<<<<[>[>>>>>>+>+<<<<<<<-]>>>>>>>[<<<<<<<+>>>>>>>-]<[>++++++++++[-<-[>>+>+<<<-]>>>[<<<+>>>-]+<[>[-]<[-]]>[<<[>>>+<<<-]>>[-]]<<]>>>[>>+>+<<<-]>>>[<<<+>>>-]+<[>[-]<[-]]>[<<+>>[-]]<<<<<<<]>>>>>[++++++++++++++++++++++++++++++++++++++++++++++++.[-]]++++++++++<[->-<]>++++++++++++++++++++++++++++++++++++++++++++++++.[-]<<<<<<<<<<<<[>>>+>+<<<<-]>>>>[<<<<+>>>>-]<-[>>.>.<<<[-]]<<[>>+>+<<<-]>>>[<<<+>>>-]<<[<+>-]>[<+>-]<<<-]
+ *
  */
-use std::char;
-use std::io::{self, Write};
 
 // TODO:
 //  - make all the functions safer and add error messages
@@ -24,78 +26,16 @@ use std::io::{self, Write};
 //  - make functionality where a code file can be supplied to execute more directly
 //  - create enum with commands
 
-const ARRAY_SIZE: usize = 30_000;
+use std::char;
+use std::io::{self, Write};
 
-struct MemorySpace {
-    index: usize,
-    array: [u8; ARRAY_SIZE],
-}
+mod memory_space;
+use memory_space::{MemorySpace, MemoryUnitType};
 
-impl MemorySpace {
-    // action for '>'
-    fn pointer_increment(&mut self) {
-        if self.index < ARRAY_SIZE - 1 {
-            self.index += 1;
-        } else {
-            self.index = 0;
-        }
-    }
+mod parser;
+use parser::Parser;
 
-    // action for '<'
-    fn pointer_decrement(&mut self) {
-        if self.index >= 1 {
-            self.index -= 1;
-        } else {
-            self.index = ARRAY_SIZE - 1;
-        }
-    }
-
-    // action for '+'
-    fn data_increment(&mut self) {
-        self.array[self.index] += 1;
-    }
-
-    // action for '-'
-    fn data_decrement(&mut self) {
-        self.array[self.index] -= 1;
-    }
-
-    // action for '.'
-    fn get_data_as_char(&self) -> Option<char> {
-        char::from_u32(self.array[self.index] as u32)
-    }
-
-    // action for ','
-    fn write_data(&mut self, c: char) {
-        self.array[self.index] = c as u8;
-    }
-
-    fn reset(self) -> MemorySpace {
-        MemorySpace {
-            index: 0,
-            array: [0; ARRAY_SIZE],
-        }
-    }
-
-    fn new() -> MemorySpace {
-        MemorySpace {
-            index: 0,
-            array: [0; ARRAY_SIZE],
-        }
-    }
-
-    fn get_index(&self) -> usize {
-        self.index
-    }
-
-    fn get_array(&self) -> &[u8] {
-        &self.array[..25]
-    }
-
-    fn is_data_zero(&self) -> bool {
-        self.array[self.index] == 0
-    }
-}
+mod interpreter;
 
 fn main() {
     println!("Brainfuck Interpreter");
@@ -103,12 +43,12 @@ fn main() {
     let mut output_string: String = String::new();
 
     // struct simulating the braifuck memory layout and functions
-    let mut mem_space = MemorySpace::new();
+    let mut mem_space = MemorySpace::new(MemoryUnitType::Int8Bit);
+
+    let mut parser = Parser::new();
 
     // whether the program should quit
     let mut quit = false;
-
-    let mut output_mode_immediate = false;
 
     // if the next character is a command or not
     let mut is_command = false;
@@ -156,20 +96,23 @@ fn main() {
 
             match c {
                 '>' => mem_space.pointer_increment(),
-                '<' => mem_space.pointer_decrement(),
+                '<' => {
+                    match mem_space.pointer_decrement() {
+                        Some(_) => (),
+                        None => eprintln!("Pointer index can't be negative!"),
+                    };
+                }
                 '+' => mem_space.data_increment(),
                 '-' => mem_space.data_decrement(),
                 '.' => match mem_space.get_data_as_char() {
                     Some(c) => {
                         output_string.push(c);
-                        if output_mode_immediate {
-                            print!("{}", c);
-                            match io::stdout().flush() {
-                                Ok(_) => (),
-                                Err(_) => {
-                                    eprintln!("Error: writing to screen failed");
-                                    break;
-                                }
+                        print!("{}", c);
+                        match io::stdout().flush() {
+                            Ok(_) => (),
+                            Err(_) => {
+                                eprintln!("Error: writing to screen failed");
+                                break;
                             }
                         }
                     }
@@ -188,7 +131,7 @@ fn main() {
                     mem_space.write_data(c);
                 }
                 '[' => {
-                    if mem_space.is_data_zero() {
+                    if mem_space.is_data_at_pointer_zero() {
                         let index = get_second_bracket(&bracket_pairs, i - 1);
                         match index {
                             Some(x) => i = x,
@@ -197,7 +140,7 @@ fn main() {
                     }
                 }
                 ']' => {
-                    if !mem_space.is_data_zero() {
+                    if !mem_space.is_data_at_pointer_zero() {
                         let index = get_first_bracket(&bracket_pairs, i - 1);
                         match index {
                             Some(x) => i = x,
@@ -215,15 +158,17 @@ fn main() {
             if is_command {
                 is_command = false;
                 match c {
-                    'r' => mem_space = mem_space.reset(),
-                    'l' => println!("{:#?}; {:?}", mem_space.get_index(), mem_space.get_array()),
+                    'r' => {
+                        mem_space.reset();
+                        println!("Reset!");
+                    }
                     'p' => {
                         println!("{}", output_string);
                         output_string = String::new();
                     }
-                    'o' => output_mode_immediate = !output_mode_immediate,
                     'q' => {
                         quit = true;
+                        println!("Quitting");
                         break;
                     }
                     _ => (),
