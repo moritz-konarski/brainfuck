@@ -35,7 +35,7 @@ use memory_space::{MemorySpace, MemoryUnitType};
 mod parser;
 use parser::Parser;
 
-mod interpreter;
+mod command_iterator;
 
 fn main() {
     println!("Brainfuck Interpreter");

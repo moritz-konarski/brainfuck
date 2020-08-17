@@ -40,6 +40,11 @@ impl Parser {
         }
     }
 
+    /// returns vector of commands
+    pub fn get_commands(&self) -> Vec<Command> {
+        self.commands
+    }
+
     pub fn from_string(input_string: &String) -> Option<Self> {
         match Self::parse_commands(input_string) {
             Some(commands) => {
@@ -62,7 +67,25 @@ impl Parser {
         }
     }
 
-    fn create_bracket_pairs(commands: &Vec<Command>) -> Vec<(usize, usize)> {
+    pub fn get_first_bracket(bracket_list: &Vec<(usize, usize)>, second_bracket: usize) -> Option<usize> {
+        for pair in bracket_list.iter() {
+            if pair.1 == second_bracket {
+                return Some(pair.0);
+            }
+        }
+        None
+    }
+
+    pub fn get_second_bracket(bracket_list: &Vec<(usize, usize)>, first_bracket: usize) -> Option<usize> {
+        for pair in bracket_list.iter() {
+            if pair.0 == first_bracket {
+                return Some(pair.1);
+            }
+        }
+        None
+    }
+
+    fn find_bracket_pairs(commands: &Vec<Command>) -> Vec<(usize, usize)> {
         let mut pair_vec: Vec<(usize, usize)> = Vec::new();
         let mut bracket_order: Vec<usize> = Vec::new();
 
