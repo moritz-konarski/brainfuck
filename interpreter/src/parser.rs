@@ -25,6 +25,30 @@ pub enum Command {
     Shell(ShellCommand),
 }
 
+/// struct representing a matching pair of brackets
+pub struct BracketPair {
+    first_bracket: usize,
+    second_bracket: usize,
+}
+
+impl BracketPair {
+    pub fn set_first_bracket(&self, index: usize) {
+        self.first_bracket = index;
+    }
+
+    pub fn set_second_bracket(&self, index: usize) {
+        self.second_bracket = index;
+    }
+
+    pub fn get_first_bracket(&self) -> usize {
+        self.first_bracket
+    }
+
+    pub fn get_second_bracket(&self) -> usize {
+        self.second_bracket
+    }
+}
+
 /// parser for brainfuck commands
 pub struct Parser {
     commands: Vec<Command>,
@@ -41,16 +65,19 @@ impl Parser {
     }
 
     /// returns vector of commands
-    pub fn get_commands(&self) -> Vec<Command> {
-        self.commands
+    pub fn get_commands(&self) -> &Vec<Command> {
+        &self.commands
     }
 
     pub fn from_string(input_string: &String) -> Option<Self> {
         match Self::parse_commands(input_string) {
             Some(commands) => {
                 // TODO: parse brackets
-                return Some(Self{commands, bracket_pairs: Vec::new()})
-            },
+                return Some(Self {
+                    commands,
+                    bracket_pairs: Vec::new(),
+                });
+            }
             None => return None,
         }
     }
@@ -61,13 +88,17 @@ impl Parser {
             Some(commands) => {
                 self.commands = commands;
                 // TODO: parse brackets
-                return Ok(true)},
+                return Ok(true);
+            }
             // returns a system io error in linux
             None => Err(io::Error::from_raw_os_error(5)),
         }
     }
 
-    pub fn get_first_bracket(bracket_list: &Vec<(usize, usize)>, second_bracket: usize) -> Option<usize> {
+    pub fn get_first_bracket(
+        bracket_list: &Vec<(usize, usize)>,
+        second_bracket: usize,
+    ) -> Option<usize> {
         for pair in bracket_list.iter() {
             if pair.1 == second_bracket {
                 return Some(pair.0);
@@ -76,7 +107,10 @@ impl Parser {
         None
     }
 
-    pub fn get_second_bracket(bracket_list: &Vec<(usize, usize)>, first_bracket: usize) -> Option<usize> {
+    pub fn get_second_bracket(
+        bracket_list: &Vec<(usize, usize)>,
+        first_bracket: usize,
+    ) -> Option<usize> {
         for pair in bracket_list.iter() {
             if pair.0 == first_bracket {
                 return Some(pair.1);
@@ -85,36 +119,39 @@ impl Parser {
         None
     }
 
-    fn find_bracket_pairs(commands: &Vec<Command>) -> Vec<(usize, usize)> {
-        let mut pair_vec: Vec<(usize, usize)> = Vec::new();
+    fn find_bracket_pairs(&self) -> Vec<(usize, usize)> {
+        let mut pairs: Vec<(usize, usize)> = Vec::new();
         let mut bracket_order: Vec<usize> = Vec::new();
 
-        // TODO: fix
-        for i in 0..input_vec.len() {
-            let c = input_vec[i];
-            match c {
-                '[' => {
-                    pair_vec.push((i, 0));
-                    bracket_order.push(pair_vec.len() - 1);
-                }
-                ']' => {
-                    pair_vec[bracket_order[bracket_order.len() - 1]].1 = i;
-                    bracket_order.remove(bracket_order.len() - 1);
-                }
+        // iterate through all elements with indices
+        for (index, element) in self.commands.iter().enumerate() {
+            match element {
+                Command::Brainfuck(c) => match c {
+                    BrainfuckCommand::OpenBracket => {
+                        // add open bracket to list
+                        pairs.push((index, 0));
+                        // add last index of pair_vec to vector
+                        // keep track of last opened bracket
+                        bracket_order.push(pairs.len() - 1);
+                    }
+                    BrainfuckCommand::ClosedBracket => {
+                        // set second bracket index, at point of the last bracket
+                        pairs[bracket_order[bracket_order.len() - 1]].1 = index;
+                        // remove last opened bracket
+                        bracket_order.remove(bracket_order.len() - 1);
+                    }
+                    _ => (),
+                },
                 _ => (),
             }
         }
-        pair_vec
+        pairs
     }
 
     /// function that turns a string into a vector of commands
     fn parse_commands(string: &String) -> Option<Vec<Command>> {
-
         let mut next_is_command = false;
         let mut commands: Vec<Command> = Vec::new();
-
-        let mut open_bracket_counter = 0;
-        let mut closed_bracket_counter = 0;
 
         for c in string.chars() {
             match c {
@@ -122,20 +159,10 @@ impl Parser {
                 '<' => commands.push(Command::Brainfuck(BrainfuckCommand::PointerDecrement)),
                 '+' => commands.push(Command::Brainfuck(BrainfuckCommand::DataIncrement)),
                 '-' => commands.push(Command::Brainfuck(BrainfuckCommand::DataDecrement)),
-                '.' => {
-                    commands.push(Command::Brainfuck(BrainfuckCommand::ReturnDataAtPointer))
-                }
-                ',' => {
-                    commands.push(Command::Brainfuck(BrainfuckCommand::WriteDataToPointer))
-                }
-                '[' => {
-                    commands.push(Command::Brainfuck(BrainfuckCommand::OpenBracket));
-                    open_bracket_counter += 1;
-                },
-                ']' => { 
-                    commands.push(Command::Brainfuck(BrainfuckCommand::ClosedBracket));
-                    closed_bracket_counter += 1;
-                },
+                '.' => commands.push(Command::Brainfuck(BrainfuckCommand::ReturnDataAtPointer)),
+                ',' => commands.push(Command::Brainfuck(BrainfuckCommand::WriteDataToPointer)),
+                '[' => commands.push(Command::Brainfuck(BrainfuckCommand::OpenBracket)),
+                ']' => commands.push(Command::Brainfuck(BrainfuckCommand::ClosedBracket)),
                 ':' => {
                     next_is_command = true;
                     continue;
@@ -153,6 +180,10 @@ impl Parser {
                 };
             }
         }
+
+        let open_bracket_counter = Self::count_brackets(&commands, BrainfuckCommand::OpenBracket);
+        let closed_bracket_counter =
+            Self::count_brackets(&commands, BrainfuckCommand::ClosedBracket);
 
         if open_bracket_counter != closed_bracket_counter {
             None
