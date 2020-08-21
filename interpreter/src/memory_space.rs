@@ -1,19 +1,5 @@
+use crate::enums::{MemoryUnit, MemoryUnitType};
 use std::char;
-
-/// Enum for the different type of storage cell sizes
-/// classic size is 8 bits unsigned (unsigned Char), more modern variation is Int (32-bit unsigned)
-#[derive(Clone)]
-enum MemoryUnit {
-    Int8Bit(u8),
-    Int32Bit(u32),
-}
-
-/// Enum for the different type of storage cell sizes to be set by user
-/// classic size is 8 bits unsigned (unsigned Char), more modern variation is Int (32-bit unsigned)
-pub enum MemoryUnitType {
-    Int8Bit,
-    Int32Bit,
-}
 
 /// struct that stores the pointer location and values of the memory space
 pub struct MemorySpace {
@@ -24,7 +10,7 @@ pub struct MemorySpace {
 impl MemorySpace {
     /// takes the type of memory and returns a MemorySpace
     pub fn new(memory_type: MemoryUnitType) -> Self {
-        let mut mem = MemorySpace {
+        let mut mem = Self {
             pointer_location: 0,
             memory: Vec::new(),
         };
